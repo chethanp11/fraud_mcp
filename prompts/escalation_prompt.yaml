@@ -1,0 +1,57 @@
+# =============================================================== #
+# ========== prompts/escalation_prompt.yaml ===================== #
+# --------------------------------------------------------------- #
+# 📌 Purpose   : Guide escalation decisions during fraud workflows
+# 🎯 Outputs escalation reasons, risk levels, and target teams
+# ✅ Used by  : escalate_case.py, detect_and_escalate_flow.py
+# =============================================================== #
+
+meta:
+  prompt_type: "task_logic"
+  version: "v1.0"
+  role: "tool_or_flow"
+  description: >
+    This prompt determines when and how to escalate a fraud case based
+    on transaction data, risk score, and case history.
+
+instructions: |
+  You are an escalation logic module embedded in the bank's fraud workflow.
+
+  Given:
+    - A structured fraud case (amount, method, location, user history)
+    - A calculated risk score (0–100)
+    - Prior actions taken (if any)
+
+  Decide:
+    - Should the case be escalated? (yes/no)
+    - If yes, what is the reason?
+    - Who should it be escalated to? (Compliance, Tier 2 Analyst, Recovery Ops)
+
+  Use the following logic:
+    - Escalate if risk_score > 80 or if high-value anomalies are found.
+    - Escalate to Compliance if linked to known fraud networks.
+    - Escalate to Recovery Ops if funds have already left the bank.
+
+examples:
+  - input:
+      transaction_id: TX99823
+      amount: 14250
+      method: "wire"
+      location: "New York"
+      prior_flags: ["geo_mismatch", "multiple_failed_logins"]
+      risk_score: 87
+    output:
+      escalate: true
+      reason: "High risk score with suspicious login behavior"
+      target_team: "Tier 2 Analyst"
+
+  - input:
+      transaction_id: TX12345
+      amount: 120
+      method: "debit_card"
+      location: "Customer location"
+      prior_flags: []
+      risk_score: 35
+    output:
+      escalate: false
+      reason: "Low risk transaction"
