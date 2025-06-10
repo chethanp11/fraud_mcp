@@ -1,0 +1,55 @@
+# =============================================================== #
+# ======================= FRAUD RULES YAML ====================== #
+# 📄 Purpose   : Structured rules for fraud detection engine
+# 🧠 Consumed by : rule_loader.py and apply_rules.py
+# =============================================================== #
+
+- id: rule_001
+  name: High Value Foreign Transaction
+  description: Flag if transaction > $10,000 and outside home country
+  conditions:
+    - field: amount
+      operator: gt
+      value: 10000
+    - field: country
+      operator: ne
+      value: "IN"
+  severity: high
+
+- id: rule_002
+  name: Rapid Transfers
+  description: More than 3 transactions within 1 minute
+  conditions:
+    - field: txn_count_last_minute
+      operator: gt
+      value: 3
+  severity: medium
+
+- id: rule_003
+  name: Account Recently Created
+  description: Transactions from accounts < 7 days old
+  conditions:
+    - field: account_age_days
+      operator: lt
+      value: 7
+  severity: high
+
+- id: rule_004
+  name: Login From Unusual Device
+  description: Login detected from a new device not seen in past 30 days
+  conditions:
+    - field: device_familiarity
+      operator: eq
+      value: "unknown"
+  severity: medium
+
+- id: rule_005
+  name: Blacklisted Recipient
+  description: Transaction sent to a flagged or blacklisted entity
+  conditions:
+    - field: recipient_id
+      operator: in
+      value: ["fraud_ring_21", "blocked_vendor_9"]
+  severity: critical
+
+# ======================= END OF FILE =========================== #

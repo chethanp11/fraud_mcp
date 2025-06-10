@@ -1,60 +1,64 @@
 # =============================================================== #
 # ================== memory/short_term.py ======================= #
 # --------------------------------------------------------------- #
-# 📌 Purpose   : Store and retrieve recent memory for fast-access tasks
-# 🧠 Storage   : In-memory cache backed by JSON file for persistence
-# ✅ Used by   : memory_router.py
+# 📌 Purpose   : Manage short-term (session-level) memory storage
+# 💾 Scope     : Volatile memory, cleared per session or flow reset
+# 🎯 Used by   : Agents, tools, flows that need recent context
 # =============================================================== #
 
-import json
-import os
-from datetime import datetime
-from . import memory_constants as mc
-
-SHORT_TERM_FILE = os.path.join(os.path.dirname(__file__), "short_term.json")
+import time
+from typing import Any, Dict
 
 # =============================================================== #
-# ===================== SHORT-TERM MEMORY ======================= #
+# ======================== SHORT TERM MEMORY ==================== #
 # =============================================================== #
 
-def store_short_term(entry: dict):
-    """
-    Append an entry to the short-term memory JSON file.
+class ShortTermMemory:
+    def __init__(self):
+        """
+        Initializes an empty short-term memory dictionary.
+        """
+        self._memory: Dict[str, Dict[str, Any]] = {}
 
-    Args:
-        entry (dict): The data to store. Must be JSON-serializable.
-    """
-    if not isinstance(entry, dict):
-        raise ValueError("Entry must be a dictionary.")
+    def set(self, session_id: str, key: str, value: Any) -> None:
+        """
+        Set a value in short-term memory for a given session.
+        """
+        if session_id not in self._memory:
+            self._memory[session_id] = {}
+        self._memory[session_id][key] = {
+            "value": value,
+            "timestamp": time.time()
+        }
 
-    entry["timestamp"] = datetime.utcnow().isoformat()
-    memory = retrieve_short_term()
-    memory.append(entry)
+    def get(self, session_id: str, key: str) -> Any:
+        """
+        Get a value from short-term memory for a given session.
+        """
+        return self._memory.get(session_id, {}).get(key, {}).get("value")
 
-    with open(SHORT_TERM_FILE, "w") as f:
-        json.dump(memory, f, indent=2)
+    def get_all(self, session_id: str) -> Dict[str, Any]:
+        """
+        Retrieve all key-value pairs for a session.
+        """
+        return {
+            k: v["value"] for k, v in self._memory.get(session_id, {}).items()
+        }
 
+    def clear(self, session_id: str) -> None:
+        """
+        Clear short-term memory for a given session.
+        """
+        self._memory.pop(session_id, None)
 
-def retrieve_short_term(filters: dict = None):
-    """
-    Retrieve short-term memory, optionally applying filters.
-
-    Args:
-        filters (dict): Key-value pairs to filter memory entries.
-
-    Returns:
-        list[dict]: Matching memory entries.
-    """
-    if not os.path.exists(SHORT_TERM_FILE):
-        return []
-
-    with open(SHORT_TERM_FILE, "r") as f:
-        memory = json.load(f)
-
-    if not filters:
-        return memory
-
-    return [item for item in memory if all(item.get(k) == v for k, v in filters.items())]
+    def dump_all_sessions(self) -> Dict[str, Dict[str, Any]]:
+        """
+        Retrieve the full short-term memory (all sessions).
+        """
+        return {
+            sid: {k: v["value"] for k, v in data.items()}
+            for sid, data in self._memory.items()
+        }
 
 # =============================================================== #
 # ======================== END OF FILE ========================== #
