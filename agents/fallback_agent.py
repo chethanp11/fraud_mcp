@@ -10,9 +10,10 @@ from memory.memory_router import store_fallback_event
 from utils.compliance_checker import is_compliant
 from resources.logs.structured_logging import log_event
 
-# ----------------------------- #
-# 🛑 Fallback Executor
-# ----------------------------- #
+# =============================================================== #
+# ======================= FALLBACK HANDLER ====================== #
+# =============================================================== #
+
 def handle_unknown_instruction(user_msg: str, user_id: str = "anonymous") -> dict:
     """
     Handles unclear or unsupported user instructions with intent clarification.
@@ -25,24 +26,40 @@ def handle_unknown_instruction(user_msg: str, user_id: str = "anonymous") -> dic
         dict: Fallback response with guidance
     """
 
-    # 1. Log the fallback event
-    log_event({
-        "type": "fallback_triggered",
-        "user_id": user_id,
-        "message": user_msg
-    })
+    # 🧪 Input validation
+    if not isinstance(user_msg, str):
+        raise ValueError("user_msg must be a string")
 
-    # 2. Store for memory/retraining purposes
-    store_fallback_event(user_msg=user_msg, user_id=user_id)
+    if not isinstance(user_id, str):
+        user_id = "anonymous"
 
-    # 3. Check if message violates policy
-    if not is_compliant(user_msg):
-        return {
-            "response": "Your request could not be processed due to policy restrictions.",
-            "action": "reject"
-        }
+    # 🪵 Step 1: Log the fallback event
+    try:
+        log_event({
+            "type": "fallback_triggered",
+            "user_id": user_id,
+            "message": user_msg
+        })
+    except Exception as e:
+        print(f"[FallbackAgent] Logging failed: {e}")
 
-    # 4. Default clarification response
+    # 🧠 Step 2: Store in memory for future learning
+    try:
+        store_fallback_event(user_msg=user_msg, user_id=user_id)
+    except Exception as e:
+        print(f"[FallbackAgent] Memory store failed: {e}")
+
+    # 🔒 Step 3: Check compliance policy
+    try:
+        if not is_compliant(user_msg):
+            return {
+                "response": "Your request could not be processed due to policy restrictions.",
+                "action": "reject"
+            }
+    except Exception as e:
+        print(f"[FallbackAgent] Compliance check failed: {e}")
+
+    # 💬 Step 4: Generic fallback response
     return {
         "response": (
             "I'm not sure how to handle that instruction yet.\n\n"
@@ -51,3 +68,7 @@ def handle_unknown_instruction(user_msg: str, user_id: str = "anonymous") -> dic
         ),
         "action": "clarify"
     }
+
+# =============================================================== #
+# ======================== END OF FILE ========================== #
+# =============================================================== #

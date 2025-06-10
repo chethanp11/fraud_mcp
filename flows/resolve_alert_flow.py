@@ -2,7 +2,7 @@
 # ============== flows/resolve_alert_flow.py ==================== #
 # --------------------------------------------------------------- #
 # 📌 Purpose   : LangGraph flow for resolving a fraud alert case
-# 🎯 Flow     : fetch_logs → analyze → resolve → notify_analyst
+# 🎯 Flow     : fetch_logs → resolve_alert → notify_analyst
 # ✅ Used by  : flow_registry, orchestrator
 # =============================================================== #
 
@@ -34,19 +34,37 @@ def resolve_alert_flow():
 
     graph = StateGraph(flow_state)
 
-    # Step 1 – Fetch logs
+    # ========================================================= #
+    # 📥 Step 1 – Fetch logs from last 'minutes'
+    # ========================================================= #
     def step_fetch(state):
-        logs = fetch_logs(state["input"])
+        minutes = state["input"].get("minutes", 60)
+        logs = fetch_logs(minutes=minutes)
         return {"fetched_logs": logs}
 
-    # Step 2 – Resolve alert
+    # ========================================================= #
+    # 🛠 Step 2 – Resolve the alert using case log details
+    # ========================================================= #
     def step_resolve(state):
-        resolution = resolve_alert(state["fetched_logs"])
+        logs = state["fetched_logs"]
+        resolution = resolve_alert(
+            case_id=logs["case_id"],
+            resolution_notes=logs.get("resolution_notes", "Auto-resolved"),
+            resolved_by=logs.get("resolved_by", "fraud_mcp")
+        )
         return {"resolution_result": resolution}
 
-    # Step 3 – Notify analyst
+    # ========================================================= #
+    # 📣 Step 3 – Notify analyst of resolution
+    # ========================================================= #
     def step_notify(state):
-        result = notify_analyst(state["resolution_result"])
+        res = state["resolution_result"]
+        result = notify_analyst(
+            case_id=res["case_id"],
+            account_id=res["account_id"],
+            severity=res["severity"],
+            summary=res.get("summary", "Alert resolved and logged.")
+        )
         return {"notification_status": result.get("status", "sent")}
 
     # Graph Construction

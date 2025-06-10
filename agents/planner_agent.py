@@ -8,6 +8,7 @@
 # =============================================================== #
 
 import openai
+import os
 import json
 from prompts.planner_prompt import get_planner_prompt
 from utils.auth import validate_intent
@@ -15,8 +16,8 @@ from utils.auth import validate_intent
 # =============================================================== #
 # ======================== SETUP LLM ============================ #
 # =============================================================== #
-# 📌 In production, replace hardcoded key with os.getenv or config loader
-openai.api_key = "sk-test"
+# 📌 Load from environment instead of hardcoding
+openai.api_key = os.getenv("OPENAI_API_KEY", "sk-test")  # Fallback for dev
 
 # =============================================================== #
 # ===================== PLANNER AGENT CORE ====================== #
@@ -34,17 +35,24 @@ def plan_intent(transaction_data: dict) -> dict:
         dict: {'type': 'tool' or 'flow', 'name': 'detect_fraud'}
     """
 
-    # ------------------ Sanity / Risk Checks ------------------- #
+    # =========================================================== #
+    # 🧪 Validation
+    # =========================================================== #
     if not isinstance(transaction_data, dict):
-        return {"type": "fallback", "name": "fallback_agent"}
+        raise ValueError("transaction_data must be a dictionary")
 
+    # 🔐 Sanity check for malicious input
     if not validate_intent(str(transaction_data)):
         return {"type": "fallback", "name": "fallback_agent"}
 
-    # ---------------- Compose Prompt --------------------------- #
+    # =========================================================== #
+    # 🧠 Compose Prompt from Transaction Payload
+    # =========================================================== #
     planning_prompt = get_planner_prompt(transaction_data)
 
-    # ---------------- Call LLM Planner ------------------------- #
+    # =========================================================== #
+    # 🚀 Call LLM to classify intent
+    # =========================================================== #
     try:
         response = openai.chat.completions.create(
             model="gpt-4o",
@@ -56,18 +64,22 @@ def plan_intent(transaction_data: dict) -> dict:
         )
         decision = response.choices[0].message["content"]
     except Exception as e:
-        print("Planner agent LLM failed:", e)
+        print(f"[Planner Error] LLM failed: {e}")
         return {"type": "fallback", "name": "fallback_agent"}
 
-    # ---------------- Parse Response --------------------------- #
+    # =========================================================== #
+    # 🧩 Parse and validate LLM output
+    # =========================================================== #
     try:
         intent_type, name = decision.strip().lower().split(":")
         if intent_type in {"tool", "flow"}:
             return {"type": intent_type, "name": name}
     except Exception:
-        pass
+        print(f"[Planner Error] Could not parse decision: {decision}")
 
-    # ---------------- Default Fallback ------------------------- #
+    # =========================================================== #
+    # 🔁 Fallback for unhandled or unclear response
+    # =========================================================== #
     return {"type": "fallback", "name": "fallback_agent"}
 
 # =============================================================== #

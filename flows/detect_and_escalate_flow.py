@@ -32,20 +32,33 @@ def detect_and_escalate_flow():
 
     graph = StateGraph(flow_state)
 
-    # Step 1 – Detect
+    # ========================================================= #
+    # 🧪 Step 1 – Detect Fraud using input transaction data
+    # ========================================================= #
     def step_detect(state):
-        result = detect_fraud(state["input"])
+        result = detect_fraud(transaction=state["input"])  # 🔧 Match tool signature
         return {
             "fraud_detected": result.get("fraud_detected", False),
             "detection_result": result,
         }
 
-    # Step 2 – Escalate if needed
+    # ========================================================= #
+    # 🚨 Step 2 – Escalate only if fraud_detected is True
+    # ========================================================= #
     def step_escalate(state):
         if not state.get("fraud_detected"):
             return {"escalation_result": None}
-        result = escalate_case(state["detection_result"])
-        return {"escalation_result": result}
+
+        det = state["detection_result"]
+        return {
+            "escalation_result": escalate_case(
+                case_id=det["case_id"],
+                flags=det["flags"],
+                severity=det["severity"],
+                analyst_notes=det.get("analyst_notes", ""),
+                destination=det.get("destination", "compliance")
+            )
+        }
 
     # Build Graph
     graph.add_node("detect", step_detect)
